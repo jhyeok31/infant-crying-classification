@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Baby Monitor</title>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
+        
+        /* 모니터링 상태창 */
+        .monitor-box {
+            background: white; padding: 30px; margin: 20px auto;
+            border-radius: 15px; max-width: 500px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* 소리 크기 시각화 (막대그래프) */
+        .volume-bar-container {
+            width: 100%; height: 20px; background: #ddd;
+            border-radius: 10px; margin: 20px 0; overflow: hidden; position: relative;
+        }
+        .volume-bar {
+            width: 0%; height: 100%; background: #4CAF50;
+            transition: width 0.1s;
+        }
+        /* 임계값 선 (Threshold Line) */
+        .threshold-line {
+            position: absolute; top: 0; bottom: 0; width: 2px; background: red;
+            left: 30%; /* 기본값 */ z-index: 10;
+        }
+
+        /* 상태 텍스트 */
+        .status-text { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+        .result-text { font-size: 18px; color: #555; margin-top: 10px; min-height: 30px; }
+
+        /* 버튼 */
+        .btn-toggle {
+            width: 100%; padding: 15px; font-size: 20px; border: none; border-radius: 10px;
+            background: #2196F3; color: white; font-weight: bold; cursor: pointer;
+        }
+        .btn-toggle.active { background: #F44336; } /* 중지 버튼 색상 */
+
+        /* 감도 조절 슬라이더 */
+        .slider-container { margin-top: 20px; text-align: left; }
+        input[type=range] { width: 100%; }
+    </style>
+</head>
+<body>
+
+    <h1>👶 스마트 베이비 모니터</h1>
+
+    <!-- 1. 파일 업로드 섹션 (New) -->
+    <div class="monitor-box" style="border: 2px dashed #ccc;">
+        <h3>📁 오디오 파일 분석</h3>
+        <form id="upload-form" style="display: flex; flex-direction: column; gap: 10px;">
+            <input type="file" name="file" accept="audio/*" required>
+            <button type="submit" class="btn-toggle" style="background: #673AB7; padding: 10px;">파일 분석하기</button>
+        </form>
+        <div id="fileResult" class="result-text" style="margin-top: 10px;"></div>
+    </div>
+
+    <!-- 2. 실시간 모니터링 섹션 -->
+    <div class="monitor-box">
+        <div class="status-text" id="statusMsg">대기 중...</div>
+        
+        <div class="volume-bar-container">
+            <div class="volume-bar" id="volumeBar"></div>
+            <div class="threshold-line" id="thresholdLine"></div>
+        </div>
+
+        <div class="result-text" id="aiResult">아직 감지된 소리가 없습니다.</div>
+
+        <div class="slider-container">
+            <label for="thresholdRange">🎚️ 민감도 조절 (현재: <span id="threshVal">30</span>)</label>
+            <input type="range" id="thresholdRange" min="10" max="100" value="30">
+            <small style="color:gray;">* 막대가 빨간 선을 넘으면 녹음이 시작됩니다.</small>
+        </div>
+    </div>
+
+    <button class="btn-toggle" id="toggleBtn" onclick="toggleMonitoring()">모니터링 시작</button>
+
+    <script>
+        let isMonitoring = false;
+        let isRecording = false; // 현재 녹음 중인지 체크 (중복 방지)
+        let audioContext, analyser, microphone, dataArray;
+        let monitoringInterval;
+        
+        // UI 요소
+        const statusMsg = document.getElementById('statusMsg');
+        const volumeBar = document.getElementById('volumeBar');
+        const thresholdLine = document.getElementById('thresholdLine');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const aiResult = document.getElementById('aiResult');
+        const threshInput = document.getElementById('thresholdRange');
+        const threshVal = document.getElementById('threshVal');
+
+        // 슬라이더 조절 이벤트
+        threshInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            threshVal.innerText = val;
+            thresholdLine.style.left = val + "%"; // 빨간 선 이동
+        });
+
+        // --- [New] 파일 업로드 핸들러 ---
+        const uploadForm = document.getElementById('upload-form');
+        const fileResult = document.getElementById('fileResult');
+
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(uploadForm);
+            fileResult.innerHTML = "⏳ 분석 중...";
+
+            try {
+                const response = await fetch('/predict', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error);
+
+                // 결과 표시
+                let confPercent = (data.confidence * 100).toFixed(1);
+                fileResult.innerHTML = `📄 분석 결과: <b style="color: #673AB7;">${data.result}</b> (신뢰도: ${confPercent}%)`;
+            } catch (err) {
+                fileResult.innerHTML = "❌ 오류: " + err.message;
+            }
+        });
+
+        // 1. 모니터링 시작/중지 함수
+        async function toggleMonitoring() {
+            if (!isMonitoring) {
+                // --> 시작 로직
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    startAudioAnalysis(stream);
+                    
+                    isMonitoring = true;
+                    toggleBtn.innerText = "모니터링 중지";
+                    toggleBtn.classList.add("active");
+                    statusMsg.innerText = "👂 소리 감시 중...";
+                    statusMsg.style.color = "#2196F3"; // 파란색
+                } catch (err) {
+                    alert("마이크 권한이 필요합니다: " + err);
+                }
+            } else {
+                // --> 중지 로직
+                isMonitoring = false;
+                toggleBtn.innerText = "모니터링 시작";
+                toggleBtn.classList.remove("active");
+                statusMsg.innerText = "대기 중...";
+                statusMsg.style.color = "black";
+                volumeBar.style.width = "0%";
+                
+                if (audioContext) audioContext.close();
+                clearInterval(monitoringInterval);
+            }
+        }
+
+        // 2. 오디오 분석 (데시벨 측정)
+        function startAudioAnalysis(stream) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            microphone = audioContext.createMediaStreamSource(stream);
+            microphone.connect(analyser);
+
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+
+            // 0.1초마다 볼륨 체크
+            monitoringInterval = setInterval(() => {
+                if (!isMonitoring) return;
+
+                analyser.getByteFrequencyData(dataArray);
+
+                // 평균 볼륨 계산 (0 ~ 255)
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                let average = sum / bufferLength;
+                
+                // 시각화를 위해 증폭 (너무 작아서 잘 안보임)
+                let displayVol = Math.min(average * 2, 100); 
+                volumeBar.style.width = displayVol + "%";
+
+                // === 핵심 로직: 임계값 넘으면 녹음 시작 ===
+                const threshold = parseInt(threshInput.value);
+                
+                if (displayVol > threshold && !isRecording) {
+                    triggerRecording(stream);
+                }
+            }, 100);
+        }
+
+        // 3. 녹음 및 서버 전송 (Triggered Action)
+        function triggerRecording(stream) {
+            isRecording = true; // 중복 실행 방지 잠금
+            statusMsg.innerText = "🚨 울음 감지! 녹음 중...";
+            statusMsg.style.color = "red";
+            volumeBar.style.backgroundColor = "red";
+
+            const mediaRecorder = new MediaRecorder(stream);
+            const audioChunks = [];
+
+            mediaRecorder.start();
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            // 5초간 녹음
+            setTimeout(() => {
+                mediaRecorder.stop();
+            }, 5000);
+
+            mediaRecorder.onstop = () => {
+                statusMsg.innerText = "☁️ 서버 분석 요청 중...";
+                volumeBar.style.backgroundColor = "#4CAF50"; // 다시 초록색
+
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const formData = new FormData();
+                formData.append("file", audioBlob, "baby_cry.wav");
+
+                // Flask 서버로 전송
+                fetch('/predict', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    // 결과 표시
+                    const confPercent = (data.confidence * 100).toFixed(1);
+                    aiResult.innerHTML = `분석 결과: <b>${data.result}</b> (신뢰도: ${confPercent}%)`;
+                    console.log("분석 완료:", data);
+
+                    // 잠시 쿨다운 후 다시 감시 모드
+                    setTimeout(() => {
+                        isRecording = false; // 잠금 해제
+                        if(isMonitoring) {
+                            statusMsg.innerText = "👂 다시 듣는 중...";
+                            statusMsg.style.color = "#2196F3";
+                        }
+                    }, 2000); // 2초 쿨다운
+                })
+                .catch(err => {
+                    console.error(err);
+                    aiResult.innerText = "오류: " + err.message;
+                    isRecording = false;
+                });
+            };
+        }
+    </script>
+</body>
+</html>

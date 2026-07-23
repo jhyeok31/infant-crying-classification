@@ -1,0 +1,10 @@
+리콜 : 맞춘개수 / 실제 개수
+accuracy 는 전체 정확도 이고
+f1 score에서 쓰는 precision, recall은 각 class에 대한 값.
+precision : 맞춘 수 / 내놓은 답 수
+recall : 맞춘 수 / 실제 존재 하는 수
+F1-SCORE  : 2 x (PRECISION x RECALL) / (PRECISION + RECALL)
+다만 분모가 0인경우 F1-SCORE = 0
+
+f1-score 가 높게 나왔던 이유는 weighted avg로 평균을 냈기 때문 (hungry가 많으니 높은 점수의 f1-score의 hungry 가중치가 높아서)
+실제로 비교해보기 위해서는 macro avg (각 클래스 가중치 1로 보고 전체 5로 나눠 평균냄) 아주 낮음. (0.18) 

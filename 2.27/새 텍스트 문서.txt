@@ -1,0 +1,33 @@
+내가 사용한 코드 : 멜 스펙트로그램 이미지와 MFCC를 동시에 입력받아 CNN 처리
+처음 돌렸을때 12% 
+증강된게 많아서 증강된 것의 패턴을 외워버리고 테스트에서 새로운 것이 나오면 틀림 (과적합)
+
+scared랑 belly_pain은 둘 다 극심한 스트레스 같아서 belly_pain으로 통합하고
+discomfort 불편한게 cold/hot 이랑 lonely일때 지속적인 괴로움인것 같아서 discomfort로 통합
+
+belly_pain
+burping
+discomfort
+hungry
+tired
+52%
+
+https://github.com/skytells-research/DeepInfant
+Deep Infant라는 어플만들라고 내준 모델 발견
+
+멜스펙트로그램으로 추출
+Convolutional Layers: Multiple CNN blocks to capture local patterns in the spectraldomain.
+Batch Normalization & Dropout: Regularization to prevent overfitting.
+Recurrent Layers (LSTM): Two stacked LSTM layers to capture temporal dependencies across audio frames.
+Fully Connected Layers: Provide final classification with a Softmax layer outputtingprobability distributions over possible cry reasons
+CRNN으로 처리.
+
+마찬가지로 피치 조절 속도 조절해서 데이터 수를 증강. 노이즈를 추가해 훈련
+증강된 수는 얼만지 모르겠으나 ...
+https://www.skytells.io/introducing-deepinfant-ai-based-software-to-understand-why-your-babys-needs/
+총 12000개데이터라고 언급
+
+VGGish 는 구글의 오디오 특징 추출기
+AFP 전통 오디오 특징 추출기
+
+애기 울음소리는 국적 상관없이 보편적이지만 문화적 환경적 요인에 따라 아기가 얼마나 자주, 강하게 우는지가 달라질 수 있음.
