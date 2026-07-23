@@ -1,0 +1,13 @@
+1번 데이터 셋 : Belly Pain 165개, burping 51개, cold_hot 150개, discomfort 81개, hungry 549개, lonely 33개, scared 54개, tired 98개의 데이터들의 멜 스펙트로그램과 MFCC가 추출되어 있음
+이 중 Belly pain과 scared는 합쳐서 Belly pain으로 통일 discomfort와 cold/hot 이랑 lonely를 discomfort로 통일 해서 5개의 class로 통일함
+그리고 이 5개의 데이터들을 피치 조절, 속도 조절, 노이즈 등으로 데이터 수를 각 class 모두 660개로 통일
+그 후 deep infant의 train.py의 CRNN학습을 참고하여 코드 작성해서 학습.
+내가 프롬프트를 잘못 넣어서 검증, 테스트 용 데이터로 너무 많이 뺐고, 훈련은 에폭을 거듭할수록 좋아지는건데 어리석게도 검증도 매 에폭마다 거듭해서 해가지고 이상한 결과가 나옴 (그림1) 훈련은 정확도가 약 90%고 검증은 약 40% 아주 이상한것
+
+2번 데이터 셋 : https://www.kaggle.com/datasets/rajipri/infant-cry 에서 laugh, noise silence 클래스는 non-crying 클래스로 합치고 belly pain, burping, discomfort, hungry, tired들만 남기고 다 지움 이 데이터셋의 데이터들은 이미 증강처리가 되어 있고 데이터양도 1번보다 많음
+이 6class에 대해 deep infant의 prepare_dataset.py 의 전처리 코드를 참고하여 약간 수정해 오디오 파일들을 전처리 하고
+마찬가지로 train.py의 CRNN학습을 참고하여 코드 작성해서 학습
+여기선 훈련 정확도와 검증 정확도가 약 40% 나옴.
+
+
+주의할 점은 증강된것에 대한 훈련 반복으로 모델이 그 답을 외워버릴 수도 있다는 것!!

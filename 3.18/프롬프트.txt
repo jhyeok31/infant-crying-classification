@@ -1,0 +1,4 @@
+FYP dataset에서 아기의 울음소리를 belly_pain, burping, discomfort, hungry, tired5가지로 분류하는 모델을 만들거.
+noncrying클래스도 만들어 둠.
+Deepinfant-main 폴더에 잘 만들어진 전처리 코드 prepare_dataset.py가 있고 학습용 (CRNN)으로 적합한 train.py파일도 있음. 데이터셋이 조금 다르기 때문에 저 두 py를 참고하여 새로운 py를 만들어서 훈련을 시킬것임
+데이터셋은 "이미 증강이 되어 있는 상태"이므로 증강할 필요는 없음 

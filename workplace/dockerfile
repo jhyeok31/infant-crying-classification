@@ -1,0 +1,29 @@
+# 1. 안정적인 파이썬 3.10 버전 사용 (파이썬 3.13의 DLL 에러 원천 차단)
+FROM python:3.10-slim
+
+# 2. 작업 디렉토리 설정
+WORKDIR /workspace
+
+# 3. 필수 시스템 패키지 설치
+# 브라우저에서 보낸 실시간 녹음 파일(.webm)을 librosa가 읽으려면 ffmpeg가 반드시 필요합니다!
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 4. 파이썬 라이브러리 설치
+# 추론(테스트)만 하므로 무거운 GPU 버전 대신 가벼운 CPU 버전의 PyTorch를 설치합니다.
+RUN pip install --no-cache-dir flask librosa numpy
+RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# 5. 프로젝트 파일 복사
+# 현재 폴더의 app.py, 훈련된 모델, HTML 템플릿을 도커 안으로 복사합니다.
+COPY app.py .
+COPY output/ ./output/
+COPY templates/ ./templates/
+
+# 6. Flask 기본 포트 5000번 개방
+EXPOSE 5000
+
+# 7. 컨테이너 실행 시 서버 가동
+CMD ["python", "app.py"]
